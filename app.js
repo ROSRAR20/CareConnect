@@ -955,17 +955,6 @@ async function parsePrescription() {
   statusEl.innerHTML = '<div class="spinner"></div> Analysing prescription with AI…';
 
   try {
-    const prompt = `You are a clinical pharmacist AI assistant. Carefully examine this prescription image — it may contain handwritten or printed text, possibly messy or partially legible.
-Extract EVERY medication listed and return ONLY a valid JSON array. Do NOT include any markdown, code fences, or explanatory text.
-Each array element must have exactly these fields:
-{
-  "name": "Medication name and strength (string)",
-  "nickname": "Generate a short, elder-friendly common name based on the medication's primary medical purpose (e.g., 'Blood Pressure Pill', 'Cholesterol Tablet'). If you cannot confidently determine the purpose, leave it as an empty string.",
-  "time": "Scheduled time in 24-hour HH:MM format (string)",
-  "dose": "Dosage instruction (string)",
-  "notes": "Any additional notes (string, empty string if none)"
-}
-If a time is ambiguous, create multiple entries. If unreadable, use best clinical judgment. If none extracted, return [].`;
 
     const response = await fetch('/api/parse', {
       method:  'POST',
@@ -973,7 +962,6 @@ If a time is ambiguous, create multiple entries. If unreadable, use best clinica
       body:    JSON.stringify({
         imageBase64: STATE.prescriptionImageBase64,
         mimeType:    STATE.prescriptionImageMime,
-        prompt:      prompt,
       }),
     });
 
