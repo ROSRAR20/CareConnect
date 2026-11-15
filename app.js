@@ -44,17 +44,9 @@
    enforced by Firebase Rules, not by keeping keys secret.
 ════════════════════════════════════════════════════════════ */
 
-let GEMINI_API_KEY = '';
-
 const CONFIG = {
   /** Caretaker access PIN (4 digits). Default: 1234 */
   CARETAKER_PIN: '1234',
-
-  /** Gemini API key */
-  GEMINI_API_KEY: '',
-
-  /** Gemini model endpoint */
-  GEMINI_MODEL: 'gemini-1.5-flash',
 
   /** EmailJS public key (from https://www.emailjs.com) */
   EMAILJS_PUBLIC_KEY: 'YOUR_EMAILJS_PUBLIC_KEY',
@@ -805,16 +797,11 @@ function handlePrescriptionImage(event) {
 }
 
 /**
- * Sends the uploaded prescription image to the Gemini 1.5 Flash model
- * via the REST API (multimodal, vision-capable request).
- *
- * Prompt engineering:
- *   • Requests a strict JSON array — no markdown, no commentary.
- *   • Each element has: name, time (HH:MM 24h), dose, notes.
- *   • Instructs the model to handle messy handwriting gracefully.
+ * Sends the uploaded prescription image to our secure Vercel serverless
+ * function (/api/parse) which interacts with the Gemini API server-side.
  *
  * On success: populates the extracted data preview card.
- * On failure: shows an error toast with the raw response for debugging.
+ * On failure: shows an error toast with the response message.
  */
 async function parsePrescription() {
   const cameraInput = document.getElementById('camera-input');
@@ -834,82 +821,25 @@ async function parsePrescription() {
     return;
   }
 
-  // Prompt for Gemini API key if not yet set
-  if (!GEMINI_API_KEY && !CONFIG.GEMINI_API_KEY) {
-    GEMINI_API_KEY = prompt("Please enter your Gemini API Key to run the Smart Parser:") || '';
-    CONFIG.GEMINI_API_KEY = GEMINI_API_KEY;
-  }
-
-  const apiKey = CONFIG.GEMINI_API_KEY || (typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '');
-  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
-    // Provide a helpful demo response so evaluators can see the UI flow
-    console.warn('[Gemini] No API key set — using demo parsed data');
-    renderExtractedMedications([
-      { name: 'Aspirin 81mg',       time: '08:00', dose: '1 tablet', notes: 'With breakfast' },
-      { name: 'Ramipril 5mg',       time: '20:00', dose: '1 tablet', notes: 'Evening'        },
-    ]);
-    return;
-  }
-
   // Show loading state
   const statusEl  = document.getElementById('parse-status');
   const parseBtn  = document.getElementById('parse-btn');
   parseBtn.disabled = true;
   statusEl.innerHTML = '<div class="spinner"></div> Analysing prescription with AI…';
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey}`;
-
-  /**
-   * Carefully crafted prompt that:
-   * 1. Instructs the model to act as a pharmacist reading a prescription.
-   * 2. Requests a pure JSON array (no markdown fences, no extra prose).
-   * 3. Provides a fallback instruction for illegible handwriting.
-   */
-  const prompt = `You are a clinical pharmacist AI assistant. Carefully examine this prescription image — it may contain handwritten or printed text, possibly messy or partially legible.
-
-Extract EVERY medication listed and return ONLY a valid JSON array.  Do NOT include any markdown, code fences, or explanatory text — just the raw JSON.
-
-Each array element must have exactly these fields:
-{
-  "name": "Medication name and strength (string)",
-  "time": "Scheduled time in 24-hour HH:MM format (string)",
-  "dose": "Dosage instruction (string)",
-  "notes": "Any additional notes (string, empty string if none)"
-}
-
-If a time is ambiguous (e.g. 'twice daily'), create two entries: one at 08:00 and one at 20:00.
-If a field is unreadable, use your best clinical judgment and note uncertainty in the notes field.
-If NO medications can be extracted, return an empty array [].`;
-
-  const requestBody = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        {
-          inline_data: {
-            mime_type: STATE.prescriptionImageMime,
-            data:      STATE.prescriptionImageBase64,
-          },
-        },
-      ],
-    }],
-    generationConfig: {
-      temperature:     0.1,  // Low temperature for consistent structured output
-      maxOutputTokens: 2048,
-      responseMimeType: 'application/json',  // Request JSON mode
-    },
-  };
-
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch('/api/parse', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(requestBody),
+      body:    JSON.stringify({
+        imageBase64: STATE.prescriptionImageBase64,
+        mimeType:    STATE.prescriptionImageMime,
+      }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Gemini API ${response.status}: ${errText}`);
+      throw new Error(`Server Error (${response.status}): ${errText}`);
     }
 
     const data = await response.json();
@@ -930,7 +860,7 @@ If NO medications can be extracted, return an empty array [].`;
     statusEl.textContent = '';
 
   } catch (err) {
-    console.error('[Gemini] parsePrescription error:', err);
+    console.error('[Parser] parsePrescription error:', err);
     statusEl.textContent = `❌ Error: ${err.message}`;
     showToast('AI parsing failed — check console for details.', 'error');
   } finally {
