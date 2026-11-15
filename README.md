@@ -66,3 +66,9 @@ CareConnect is built on a secure, first-principles architecture:
    ```
 
    ```
+   ## 🔮 Future Scope
+While the current MVP successfully tackles immediate adherence and role-based syncing, the roadmap for CareConnect includes:
+* **Medical API Integration:** Checking for dangerous drug-drug interactions (e.g., if a new uploaded prescription negatively interacts with an existing one).
+* **Wearable Integration:** Pushing time-window alerts directly to smartwatches (Apple Watch/WearOS) for haptic feedback, as elderly patients may not always have their phones in hand.
+* **Multilingual Voice Prompts:** Allowing the Gemini AI to generate audio reminders in regional languages for patients with visual impairments or lower literacy levels.
+* **Direct E-Rx Fetching:** Integrating with hospital databases to pull prescriptions directly, bypassing the need for physical photo uploads.

@@ -274,9 +274,9 @@ async function loadSchedule() {
 
 function getDemoSchedule() {
   return [
-    { id: 'demo-1', name: 'Metformin 500mg',   time: '08:00', dose: '1 tablet',  notes: 'Take with breakfast' },
-    { id: 'demo-2', name: 'Lisinopril 10mg',   time: '12:00', dose: '1 tablet',  notes: 'Take with water'    },
-    { id: 'demo-3', name: 'Atorvastatin 20mg', time: '20:00', dose: '1 tablet',  notes: 'Take at bedtime'    },
+    { id: 'demo-1', name: 'Metformin 500mg',   nickname: 'Sugar Pill',          time: '08:00', dose: '1 tablet',  notes: 'Take with breakfast' },
+    { id: 'demo-2', name: 'Lisinopril 10mg',   nickname: 'Blood Pressure Pill', time: '12:00', dose: '1 tablet',  notes: 'Take with water'    },
+    { id: 'demo-3', name: 'Atorvastatin 20mg', nickname: 'Cholesterol Pill',    time: '20:00', dose: '1 tablet',  notes: 'Take at bedtime'    },
   ];
 }
 
@@ -351,12 +351,10 @@ function renderCurrentMedPanel() {
     return;
   }
 
-  if (nameEl) nameEl.textContent = med.nickname ? med.nickname : med.name;
+  if (nameEl) nameEl.textContent = STATE.currentMed.nickname;
   if (timeEl) timeEl.textContent = `⏰ ${formatTime(med.time)}`;
-  
-  const realNameDisplay = med.nickname ? `(${med.name}) ` : '';
   if (doseEl) {
-    doseEl.textContent = med.dose ? `Dosage: ${realNameDisplay}${med.dose}${med.notes ? ' — ' + med.notes : ''}` : realNameDisplay;
+    doseEl.textContent = `Dosage: (${STATE.currentMed.name}) ${STATE.currentMed.dose}`;
   }
 
   const now = new Date();
