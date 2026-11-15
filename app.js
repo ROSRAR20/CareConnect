@@ -570,11 +570,14 @@ function renderPatientSchedule() {
   container.innerHTML = STATE.schedule.map(med => {
     const statusClass = getScheduleItemStatus(med);
     const statusLabel = { taken: '✅ Taken', missed: '⚠️ Missed', upcoming: '🔜 Upcoming' }[statusClass];
+    const medDisplayName = med.nickname
+      ? `${escapeHtml(med.nickname)} <span class="med-real-name" style="font-size:0.85em;color:var(--text-secondary);font-weight:normal;">(${escapeHtml(med.name)})</span>`
+      : escapeHtml(med.name);
     return `
       <div class="schedule-item ${statusClass}" role="listitem">
         <span class="schedule-time">${formatTime(med.time)}</span>
         <div class="schedule-details">
-          <div class="schedule-med-name">${escapeHtml(med.name)}</div>
+          <div class="schedule-med-name">${medDisplayName}</div>
           <div class="schedule-dose">${escapeHtml(med.dose || '')}</div>
         </div>
         <span class="schedule-status-badge">${statusLabel}</span>
@@ -923,12 +926,25 @@ async function parsePrescription() {
   statusEl.innerHTML = '<div class="spinner"></div> Analysing prescription with AI…';
 
   try {
+    const prompt = `You are a clinical pharmacist AI assistant. Carefully examine this prescription image — it may contain handwritten or printed text, possibly messy or partially legible.
+Extract EVERY medication listed and return ONLY a valid JSON array. Do NOT include any markdown, code fences, or explanatory text.
+Each array element must have exactly these fields:
+{
+  "name": "Medication name and strength (string)",
+  "nickname": "Generate a short, elder-friendly common name based on the medication's primary medical purpose (e.g., 'Blood Pressure Pill', 'Cholesterol Tablet'). If you cannot confidently determine the purpose, leave it as an empty string.",
+  "time": "Scheduled time in 24-hour HH:MM format (string)",
+  "dose": "Dosage instruction (string)",
+  "notes": "Any additional notes (string, empty string if none)"
+}
+If a time is ambiguous, create multiple entries. If unreadable, use best clinical judgment. If none extracted, return [].`;
+
     const response = await fetch('/api/parse', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         imageBase64: STATE.prescriptionImageBase64,
         mimeType:    STATE.prescriptionImageMime,
+        prompt:      prompt,
       }),
     });
 
@@ -981,10 +997,14 @@ function renderExtractedMedications(medications) {
     return;
   }
 
-  listEl.innerHTML = medications.map((med, idx) => `
+  listEl.innerHTML = medications.map((med, idx) => {
+    const medTitle = med.nickname
+      ? `${escapeHtml(med.nickname)} <span style="font-size:0.85em;color:var(--text-secondary);font-weight:normal;">(${escapeHtml(med.name || 'Unknown')})</span>`
+      : escapeHtml(med.name || 'Unknown');
+    return `
     <div class="extracted-item" role="listitem">
       <div>
-        <div class="extracted-item-name">${escapeHtml(med.name || 'Unknown')}</div>
+        <div class="extracted-item-name">${medTitle}</div>
         <div class="extracted-item-meta">
           Dose: ${escapeHtml(med.dose || '—')}
           ${med.notes ? ` · ${escapeHtml(med.notes)}` : ''}
@@ -992,7 +1012,8 @@ function renderExtractedMedications(medications) {
       </div>
       <div class="extracted-item-time">${escapeHtml(med.time || '??:??')}</div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   wrapEl.classList.remove('hidden');
   showToast(`✨ ${medications.length} medication${medications.length !== 1 ? 's' : ''} extracted!`, 'success');
@@ -1012,6 +1033,7 @@ async function saveExtractedMedications() {
       const ref = db.collection('medications').doc();
       batch.set(ref, {
         name:      med.name  || 'Unknown',
+        nickname:  med.nickname || '',
         time:      med.time  || '08:00',
         dose:      med.dose  || '',
         notes:     med.notes || '',
@@ -1022,8 +1044,6 @@ async function saveExtractedMedications() {
     await batch.commit();
 
     showToast(`💾 ${meds.length} medication${meds.length !== 1 ? 's' : ''} saved!`, 'success');
-
-    // Clear the extracted panel and reload the schedule
     document.getElementById('extracted-data').classList.add('hidden');
     STATE.pendingMedications = [];
     await loadSchedule();
@@ -1226,19 +1246,24 @@ function renderCaretakerSchedule() {
     return;
   }
 
-  container.innerHTML = STATE.schedule.map(med => `
+  container.innerHTML = STATE.schedule.map(med => {
+    const medDisplayName = med.nickname
+      ? `${escapeHtml(med.nickname)} <span class="med-real-name" style="font-size:0.85em;color:var(--text-secondary);font-weight:normal;">(${escapeHtml(med.name)})</span>`
+      : escapeHtml(med.name);
+    return `
     <div class="schedule-item" role="listitem">
       <span class="schedule-time">${formatTime(med.time)}</span>
       <div class="schedule-details">
-        <div class="schedule-med-name">${escapeHtml(med.name)}</div>
+        <div class="schedule-med-name">${medDisplayName}</div>
         <div class="schedule-dose">${escapeHtml(med.dose || '')} ${med.notes ? '· ' + escapeHtml(med.notes) : ''}</div>
       </div>
       <button
         class="delete-med-btn"
-        aria-label="Delete ${escapeHtml(med.name)}"
+        aria-label="Delete ${escapeHtml(med.nickname || med.name)}"
         onclick="deleteMedication('${med.id}')"
       >🗑</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 /**
@@ -1254,6 +1279,9 @@ async function addMedicationManually(event) {
   const time  = document.getElementById('med-time-input').value;
   const dose  = document.getElementById('med-dose-input').value.trim();
   const notes = document.getElementById('med-notes-input').value.trim();
+  
+  const nicknameInput = document.getElementById('med-nickname-input');
+  const nickname = nicknameInput ? nicknameInput.value.trim() : '';
 
   if (!name || !time) {
     showToast('Please fill in the name and time fields.', 'error');
@@ -1262,15 +1290,16 @@ async function addMedicationManually(event) {
 
   try {
     await db.collection('medications').add({
-      name,
-      time,
-      dose:      dose  || '',
-      notes:     notes || '',
+      name: name,
+      nickname: nickname,
+      time: time,
+      dose: dose || '',
+      notes: notes || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      source:    'manual',
+      source: 'manual',
     });
 
-    showToast(`✅ ${name} added to schedule!`, 'success');
+    showToast(`✅ ${nickname || name} added to schedule!`, 'success');
     event.target.reset();
     await loadSchedule();
     renderCaretakerSchedule();

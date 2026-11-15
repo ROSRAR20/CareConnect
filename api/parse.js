@@ -18,11 +18,12 @@ export default async function handler(req, res) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
 
 
-  const prompt = `You are a clinical pharmacist AI assistant. Carefully examine this prescription image — it may contain handwritten or printed text, possibly messy or partially legible.
+  const prompt = req.body.prompt || `You are a clinical pharmacist AI assistant. Carefully examine this prescription image — it may contain handwritten or printed text, possibly messy or partially legible.
 Extract EVERY medication listed and return ONLY a valid JSON array. Do NOT include any markdown, code fences, or explanatory text.
 Each array element must have exactly these fields:
 {
   "name": "Medication name and strength (string)",
+  "nickname": "Generate a short, elder-friendly common name based on the medication's primary medical purpose (e.g., 'Blood Pressure Pill', 'Cholesterol Tablet'). If you cannot confidently determine the purpose, leave it as an empty string.",
   "time": "Scheduled time in 24-hour HH:MM format (string)",
   "dose": "Dosage instruction (string)",
   "notes": "Any additional notes (string, empty string if none)"
