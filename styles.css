@@ -35,26 +35,7 @@
    §0  DESIGN TOKENS
 ══════════════════════════════════════════════════════════════ */
 /* --- MOBILE RESPONSIVE FIX --- */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
 
-html, body {
-  max-width: 100vw;
-  overflow-x: hidden; /* Absolutely prevents side-to-side scrolling */
-}
-
-/* Force all your main containers and cards to shrink to the screen size */
-.container, 
-.card, 
-.med-card, 
-.dashboard-header, 
-form, 
-input, 
-button {
-  width: 100%;
-  max-width: 100%;
-}
 :root {
 
   /* ── Core palette (spec) ────────────────────────────────── */
