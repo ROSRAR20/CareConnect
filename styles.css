@@ -1047,7 +1047,8 @@ input, select, textarea { font-family: var(--font-sans); font-size: inherit; }
   flex-wrap: wrap;
 }
 .extracted-actions .btn-primary,
-.extracted-actions .btn-danger {
+.extracted-actions .btn-danger,
+.save-meds-btn {
   font-family: var(--font-sans);
   flex: 1;
   min-width: 180px;
@@ -1064,6 +1065,12 @@ input, select, textarea { font-family: var(--font-sans); font-size: inherit; }
   transition: var(--transition-btn);
   cursor: pointer;
 }
+.extracted-actions .btn-primary:active,
+.extracted-actions .btn-danger:active,
+.save-meds-btn:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-pressed);
+}
 .extracted-actions .btn-primary {
   background: var(--accent-primary);
   color: #fff;
@@ -1071,10 +1078,6 @@ input, select, textarea { font-family: var(--font-sans); font-size: inherit; }
 }
 .extracted-actions .btn-primary:hover {
   background: #4a655e;
-}
-.extracted-actions .btn-primary:active {
-  transform: translateY(2px);
-  box-shadow: var(--shadow-pressed);
 }
 .extracted-actions .btn-danger {
   background: var(--action-critical);
@@ -1084,30 +1087,16 @@ input, select, textarea { font-family: var(--font-sans); font-size: inherit; }
 .extracted-actions .btn-danger:hover {
   background: #c45b43;
 }
-.extracted-actions .btn-danger:active {
-  transform: translateY(2px);
-  box-shadow: var(--shadow-pressed);
-}
-
 .save-meds-btn {
-  font-family: var(--font-sans);
-  display: flex; align-items: center; justify-content: center;
-  gap: 0.5rem;
+  width: 100%;
   padding: 1rem;
   background: var(--status-success);
   color: #fff;
   border: 2px solid var(--status-success-dark);
-  border-radius: var(--radius-btn);
-  font-weight: 800;
-  font-size: var(--text-base);
-  min-height: 52px;
-  width: 100%;
-  box-shadow: var(--shadow-card);
-  transition: var(--transition-btn);
-  cursor: pointer;
 }
-.save-meds-btn:hover  { background: var(--status-success-dark); }
-.save-meds-btn:active { transform: translateY(2px); box-shadow: var(--shadow-pressed); }
+.save-meds-btn:hover {
+  background: var(--status-success-dark);
+}
 
 
 /* ═══════════════════════════════════════════════════════════
