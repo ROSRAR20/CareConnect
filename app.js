@@ -827,7 +827,7 @@ async function sendSOSAlert() {
     await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_SOS_TEMPLATE_ID, templateParams, CONFIG.EMAILJS_PUBLIC_KEY);
     showToast('✅ Your caretaker has been alerted!', 'success');
   } catch (err) {
-    console.error('[EmailJS] SOS email failed:', err);
+    console.error('[EmailJS] SOS email failed:', err.text || JSON.stringify(err) || err);
     showToast('Alert sent (check your connection too).', 'warning');
   }
 }
