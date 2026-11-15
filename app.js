@@ -494,61 +494,68 @@ function getOneHourPriorFormatted(hhmm) {
  */
 function renderCurrentMedPanel() {
   const med = STATE.currentMed;
+  const nameEl = document.getElementById('current-med-name');
+  const timeEl = document.getElementById('current-med-time');
+  const doseEl = document.getElementById('current-med-dose');
   const btnYes = document.getElementById('btn-yes');
   const btnNo  = document.getElementById('btn-no');
   const feedbackEl = document.getElementById('med-feedback');
 
   if (!med) {
-    document.getElementById('current-med-name').textContent = 'No medications scheduled';
-    document.getElementById('current-med-time').textContent = '';
-    document.getElementById('current-med-dose').textContent = '';
-    if (btnYes) btnYes.disabled = true;
-    if (btnNo) btnNo.disabled = true;
-    if (feedbackEl) {
-      feedbackEl.textContent = '';
-      feedbackEl.className = 'med-feedback';
-    }
+    nameEl.textContent = 'No medications scheduled';
+    timeEl.textContent = '';
+    doseEl.textContent = '';
+    btnYes.disabled = true;
+    btnNo.disabled = true;
     return;
   }
 
-  document.getElementById('current-med-name').textContent = med.name;
-  document.getElementById('current-med-time').textContent = `⏰ ${formatTime(med.time)}`;
-  document.getElementById('current-med-dose').textContent = med.dose ? `Dosage: ${med.dose}${med.notes ? ' — ' + med.notes : ''}` : '';
+  // Handle Nickname display (if you have implemented it) or fallback to name
+  nameEl.textContent = med.nickname ? med.nickname : med.name;
+  timeEl.textContent = `⏰ ${formatTime(med.time)}`;
+  
+  // If using a nickname, show the real name down in the dosage area
+  const realNameDisplay = med.nickname ? `(${med.name}) ` : '';
+  doseEl.textContent = med.dose ? `Dosage: ${realNameDisplay}${med.dose}${med.notes ? ' — ' + med.notes : ''}` : realNameDisplay;
 
-  // ── Enforce +/- 60 Minute Time Window ──
+  // ── TIME WINDOW MATH ──
   const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const medMinutes = timeToMinutes(med.time);
-  const diffMinutes = currentMinutes - medMinutes;
+  
+  // Convert scheduled "HH:MM" into a real Date object for today
+  const [hours, minutes] = med.time.split(':').map(Number);
+  const medTime = new Date();
+  medTime.setHours(hours, minutes, 0, 0);
+
+  // Calculate the difference in minutes
+  const diffMinutes = (now - medTime) / (1000 * 60);
 
   if (diffMinutes < -60) {
-    // State 1: Too Early (> 60 minutes before)
-    if (btnYes) btnYes.disabled = true;
-    if (btnNo) btnNo.disabled = true;
-    if (feedbackEl) {
-      const startTimeFormatted = getOneHourPriorFormatted(med.time);
-      feedbackEl.textContent = `Not time yet. You can log this starting at ${startTimeFormatted}.`;
-      feedbackEl.className = 'med-feedback warning';
-    }
+    // 1. Too Early (> 60 mins before)
+    btnYes.disabled = true;
+    btnNo.disabled = true;
+    
+    // Calculate exact opening time (1 hour prior)
+    const openTime = new Date(medTime.getTime() - (60 * 60 * 1000));
+    const openTimeStr = openTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    
+    feedbackEl.textContent = `Not time yet. You can log this starting at ${openTimeStr}.`;
+    feedbackEl.className = 'med-feedback warning';
+    
   } else if (diffMinutes > 60) {
-    // State 3: Missed / Too Late (> 60 minutes after)
-    if (btnYes) btnYes.disabled = true;
-    if (btnNo) btnNo.disabled = true;
-    if (feedbackEl) {
-      feedbackEl.textContent = 'Time window closed. Caretaker has been notified.';
-      feedbackEl.className = 'med-feedback error';
-    }
+    // 2. Too Late (> 60 mins after)
+    btnYes.disabled = true;
+    btnNo.disabled = true;
+    feedbackEl.textContent = 'Time window closed. Caretaker has been notified.';
+    feedbackEl.className = 'med-feedback error';
+    
   } else {
-    // State 2: Active Window (within 60 minutes before or after)
-    if (btnYes) btnYes.disabled = false;
-    if (btnNo) btnNo.disabled = false;
-    if (feedbackEl) {
-      feedbackEl.textContent = '';
-      feedbackEl.className = 'med-feedback';
-    }
+    // 3. Active Window
+    btnYes.disabled = false;
+    btnNo.disabled = false;
+    feedbackEl.textContent = '';
+    feedbackEl.className = 'med-feedback';
   }
 }
-
 /**
  * Renders the patient-facing read-only schedule list.
  * Marks each slot as taken / missed / upcoming based on today's adherence log.
