@@ -148,6 +148,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // f) Empathy watchdog (fires every 60 seconds)
   setInterval(checkEmpathyLoop, 60_000);
 
+  // g) Extracted prescription action buttons
+  const btnAdd = document.getElementById('btn-add-extracted');
+  if (btnAdd) {
+    btnAdd.addEventListener('click', () => saveExtractedMedications(false));
+  }
+
+  const btnReplace = document.getElementById('btn-replace-extracted');
+  if (btnReplace) {
+    btnReplace.addEventListener('click', () => saveExtractedMedications(true));
+  }
+
   console.log('[CareConnect] App initialised ✓');
 });
 
@@ -1021,13 +1032,26 @@ function renderExtractedMedications(medications) {
 
 /**
  * Saves the AI-extracted medications to Firestore after caretaker review.
- * Uses a Firestore batch write for atomicity — all succeed or all fail.
+ * Supports adding to the current schedule or replacing it entirely.
+ *
+ * @param {boolean} [isReplace=false] - Whether to delete all existing medications before saving.
  */
-async function saveExtractedMedications() {
+async function saveExtractedMedications(isReplace = false) {
   const meds = STATE.pendingMedications;
   if (!meds.length) return;
 
   try {
+    if (isReplace) {
+      const existingSnapshot = await db.collection('medications').get();
+      if (!existingSnapshot.empty) {
+        const deleteBatch = db.batch();
+        existingSnapshot.forEach(doc => {
+          deleteBatch.delete(doc.ref);
+        });
+        await deleteBatch.commit();
+      }
+    }
+
     const batch = db.batch();
     meds.forEach(med => {
       const ref = db.collection('medications').doc();
@@ -1043,7 +1067,7 @@ async function saveExtractedMedications() {
     });
     await batch.commit();
 
-    showToast(`💾 ${meds.length} medication${meds.length !== 1 ? 's' : ''} saved!`, 'success');
+    showToast(isReplace ? '🔄 Schedule replaced with extracted medications!' : `💾 ${meds.length} medication${meds.length !== 1 ? 's' : ''} saved!`, 'success');
     document.getElementById('extracted-data').classList.add('hidden');
     STATE.pendingMedications = [];
     await loadSchedule();

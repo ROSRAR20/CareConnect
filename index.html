@@ -420,13 +420,10 @@
         <div id="extracted-data" class="extracted-data hidden" aria-live="polite">
           <h3>Extracted Medications <span class="badge badge-success">Review & Save</span></h3>
           <div id="extracted-list" class="extracted-list"></div>
-          <button
-            class="save-meds-btn"
-            aria-label="Save extracted medications to database"
-            onclick="saveExtractedMedications()"
-          >
-            <span aria-hidden="true">💾</span> Save to Schedule
-          </button>
+          <div class="extracted-actions">
+            <button id="btn-add-extracted" class="btn-primary">➕ Add to Schedule</button>
+            <button id="btn-replace-extracted" class="btn-danger">⚠️ Replace Entire Schedule</button>
+          </div>
         </div>
       </article>
 
