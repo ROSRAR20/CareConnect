@@ -3,9 +3,9 @@
 // --- CONFIGURATION ---
 const CONFIG = {
   CARETAKER_PIN: '1234',
-  EMAILJS_PUBLIC_KEY: 'YOUR_EMAILJS_PUBLIC_KEY',
-  EMAILJS_SERVICE_ID: 'YOUR_EMAILJS_SERVICE_ID',
-  EMAILJS_MISSED_TEMPLATE_ID: 'template_missed_dose',
+  EMAILJS_PUBLIC_KEY: 'qFhlLXs7hGlscPU7d',
+  EMAILJS_SERVICE_ID: 'service_b9op7vi',
+  EMAILJS_MISSED_TEMPLATE_ID: 'template_ytwtarz',
   EMAILJS_SOS_TEMPLATE_ID: 'template_sos_alert',
   CARETAKER_EMAIL: 'caretaker@example.com',
   PATIENT_NAME: 'Grandma Rose',
@@ -67,8 +67,8 @@ function resetPinState() {
 
 // --- INITIALISATION ---
 document.addEventListener('DOMContentLoaded', () => {
-  if (typeof emailjs !== 'undefined') {
-    emailjs.init({ publicKey: CONFIG.EMAILJS_PUBLIC_KEY });
+  if (typeof emailjs !== 'undefined' && CONFIG.EMAILJS_PUBLIC_KEY && !CONFIG.EMAILJS_PUBLIC_KEY.includes('YOUR_')) {
+    emailjs.init(CONFIG.EMAILJS_PUBLIC_KEY);
   }
 
   const nameEl = $('patient-name');
@@ -467,16 +467,18 @@ async function confirmMedication(taken) {
     const templateParams = {
       patient_name: "Grandma Rose",
       medication_name: STATE.currentMed ? (STATE.currentMed.nickname || STATE.currentMed.name) : "",
+      med_name: STATE.currentMed ? (STATE.currentMed.nickname || STATE.currentMed.name) : "",
       time: STATE.currentMed ? STATE.currentMed.time : "",
+      scheduled_time: STATE.currentMed ? formatTime(STATE.currentMed.time) : "",
       message: "Missed dose alert triggered from the CareConnect Patient Dashboard."
     };
 
-    emailjs.send("service_b9op7vi", "template_ytwtarz", templateParams)
+    emailjs.send("service_b9op7vi", "template_ytwtarz", templateParams, "qFhlLXs7hGlscPU7d")
       .then(function(response) {
         console.log('✅ Caretaker Email Sent!', response.status, response.text);
         showToast("Caretaker Notified", "info");
       }, function(error) {
-        console.log('❌ Email Failed...', error);
+        console.error('❌ Email Failed...', error);
       });
 
     startEmpathyTimer(med);
@@ -767,7 +769,7 @@ async function sendMissedDoseEmail(med) {
   };
 
   try {
-    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_MISSED_TEMPLATE_ID, templateParams);
+    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_MISSED_TEMPLATE_ID, templateParams, CONFIG.EMAILJS_PUBLIC_KEY);
     showToast('⚠️ Caretaker has been alerted!', 'warning');
   } catch (err) {
     console.error('[EmailJS] Failed to send missed-dose email:', err);
@@ -786,7 +788,7 @@ async function sendSOSAlert() {
   showToast('🆘 Alerting your caretaker…', 'warning');
 
   try {
-    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_SOS_TEMPLATE_ID, templateParams);
+    await emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_SOS_TEMPLATE_ID, templateParams, CONFIG.EMAILJS_PUBLIC_KEY);
     showToast('✅ Your caretaker has been alerted!', 'success');
   } catch (err) {
     console.error('[EmailJS] SOS email failed:', err);
