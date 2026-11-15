@@ -15,7 +15,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server missing API key configuration' });
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
+
 
   const prompt = `You are a clinical pharmacist AI assistant. Carefully examine this prescription image — it may contain handwritten or printed text, possibly messy or partially legible.
 Extract EVERY medication listed and return ONLY a valid JSON array. Do NOT include any markdown, code fences, or explanatory text.
