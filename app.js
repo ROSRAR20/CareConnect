@@ -6,7 +6,7 @@ const CONFIG = {
   EMAILJS_PUBLIC_KEY: 'qFhlLXs7hGlscPU7d',
   EMAILJS_SERVICE_ID: 'service_b9op7vi',
   EMAILJS_MISSED_TEMPLATE_ID: 'template_ytwtarz',
-  EMAILJS_SOS_TEMPLATE_ID: 'template_sos_alert',
+  EMAILJS_SOS_TEMPLATE_ID: 'template_ytwtarz',
   CARETAKER_EMAIL: 'caretaker@example.com',
   PATIENT_NAME: 'Grandma Rose',
   EMPATHY_LOOP_MS: 45 * 60 * 1000,
