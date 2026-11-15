@@ -1,0 +1,20 @@
+{
+  "name": "careconnect-medication-platform",
+  "version": "1.0.0",
+  "description": "Elderly Care & Medication Management Platform — dual-interface ecosystem for patients and caretakers.",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": ["elderly-care", "medication", "accessibility", "firebase", "gemini-ai"],
+  "author": "CareConnect Team",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.js"]
+  }
+}

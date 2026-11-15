@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+  ============================================================
+  Elderly Care & Medication Management Platform
+  ============================================================
+  Dual-interface ecosystem:
+    - Patient View  : High-accessibility, oversized controls,
+                      wellness goals, and empathy-loop alerts.
+    - Caretaker View: PIN-gated command center with AI-powered
+                      prescription parser (Gemini Vision API).
+
+  Deployment target : Vercel (static, zero-backend)
+  Dependencies      : Firebase Firestore, EmailJS, Gemini API
+                      (all loaded via CDN — no build step).
+  ============================================================
+-->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="Elderly Care & Medication Management Platform — helping seniors stay safe and families stay informed." />
+  <meta name="theme-color" content="#1a56db" />
+
+  <!-- Open Graph / Social preview -->
+  <meta property="og:title" content="CareConnect – Medication & Wellness Platform" />
+  <meta property="og:description"
+    content="A dual-interface care platform for seniors and their caregivers." />
+  <meta property="og:type" content="website" />
+
+  <title>CareConnect – Medication & Wellness Platform</title>
+
+  <!-- ── Stylesheets ── -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- ── Firebase (CDN, v9 compat shim — no build tooling needed) ── -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <!-- ── EmailJS ── -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+</head>
+
+<body>
+  <!-- ══════════════════════════════════════════════════════
+       SKIP-NAV LINK  (a11y: keyboard / screen-reader first)
+  ═══════════════════════════════════════════════════════ -->
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- ══════════════════════════════════════════════════════
+       GLOBAL HEADER
+  ═══════════════════════════════════════════════════════ -->
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <!-- Logo / brand -->
+      <div class="brand" aria-label="CareConnect brand">
+        <span class="brand-icon" aria-hidden="true">💊</span>
+        <span class="brand-name">CareConnect</span>
+      </div>
+
+      <!-- Mode switcher -->
+      <nav class="mode-switcher" role="navigation" aria-label="View switcher">
+        <button
+          id="btn-patient-view"
+          class="mode-btn active"
+          aria-pressed="true"
+          aria-controls="patient-view"
+          onclick="switchView('patient')"
+        >
+          <span aria-hidden="true">👤</span> Patient
+        </button>
+        <button
+          id="btn-caretaker-view"
+          class="mode-btn"
+          aria-pressed="false"
+          aria-controls="caretaker-view"
+          onclick="initCaretakerAccess()"
+        >
+          <span aria-hidden="true">🩺</span> Caretaker
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════
+       MAIN CONTENT WRAPPER
+  ═══════════════════════════════════════════════════════ -->
+  <main id="main-content" class="main-wrapper">
+
+    <!-- ────────────────────────────────────────────────────
+         ①  PATIENT VIEW
+         Accessibility-first: ultra-large touch targets,
+         semantic landmarks, ARIA live regions for feedback.
+    ──────────────────────────────────────────────────── -->
+    <section
+      id="patient-view"
+      class="view active"
+      aria-label="Patient medication and wellness dashboard"
+      aria-live="polite"
+    >
+      <!-- Greeting banner -->
+      <div class="greeting-card card" role="region" aria-label="Daily greeting">
+        <p class="greeting-time" id="greeting-time-label" aria-live="polite"></p>
+        <h1 class="greeting-name">Hello, <span id="patient-name">Friend</span>! 👋</h1>
+        <p class="greeting-date" id="greeting-date" aria-live="polite"></p>
+      </div>
+
+      <!-- ── Medication Confirmation Panel ── -->
+      <article
+        class="med-panel card"
+        aria-labelledby="med-panel-title"
+        role="region"
+      >
+        <h2 id="med-panel-title" class="section-title">
+          <span aria-hidden="true">💊</span> Your Next Medication
+        </h2>
+
+        <!-- Current medication slot populated by JS -->
+        <div id="med-info" class="med-info" aria-live="polite" aria-atomic="true">
+          <p class="med-name" id="current-med-name">Loading…</p>
+          <p class="med-time" id="current-med-time"></p>
+          <p class="med-dose" id="current-med-dose"></p>
+        </div>
+
+        <!-- Completion counter badge -->
+        <div class="counter-badge" aria-live="polite" aria-label="Doses confirmed today">
+          <span class="counter-value" id="dose-counter">0</span>
+          <span class="counter-label">doses confirmed today</span>
+        </div>
+
+        <!-- BIG action buttons -->
+        <div class="action-row" role="group" aria-label="Medication confirmation">
+          <button
+            id="btn-yes"
+            class="confirm-btn btn-yes"
+            aria-label="Yes, I took my medication"
+            onclick="confirmMedication(true)"
+          >
+            <span class="btn-icon" aria-hidden="true">✅</span>
+            <span class="btn-text">YES, I took it!</span>
+          </button>
+          <button
+            id="btn-no"
+            class="confirm-btn btn-no"
+            aria-label="No, I have not taken my medication yet"
+            onclick="confirmMedication(false)"
+          >
+            <span class="btn-icon" aria-hidden="true">❌</span>
+            <span class="btn-text">Not yet</span>
+          </button>
+        </div>
+
+        <!-- Visual feedback area (animated on action) -->
+        <div
+          id="med-feedback"
+          class="med-feedback"
+          role="status"
+          aria-live="assertive"
+          aria-atomic="true"
+        ></div>
+      </article>
+
+      <!-- ── Daily Wellness Goals ── -->
+      <article
+        class="wellness-panel card"
+        aria-labelledby="wellness-title"
+        role="region"
+      >
+        <h2 id="wellness-title" class="section-title">
+          <span aria-hidden="true">🌟</span> Today's Wellness Goals
+        </h2>
+        <p class="wellness-subtitle">Tap each goal when you've completed it!</p>
+
+        <ul class="wellness-list" role="list" aria-label="Daily wellness checklist">
+          <!-- Goal: Water -->
+          <li>
+            <button
+              id="goal-water"
+              class="wellness-btn"
+              aria-label="Mark water drinking goal as complete"
+              aria-pressed="false"
+              onclick="toggleWellnessGoal('water', this)"
+            >
+              <span class="goal-icon" aria-hidden="true">💧</span>
+              <span class="goal-text">Drink 8 Glasses of Water</span>
+              <span class="goal-check" aria-hidden="true">○</span>
+            </button>
+          </li>
+          <!-- Goal: Walk -->
+          <li>
+            <button
+              id="goal-walk"
+              class="wellness-btn"
+              aria-label="Mark 15-minute walk goal as complete"
+              aria-pressed="false"
+              onclick="toggleWellnessGoal('walk', this)"
+            >
+              <span class="goal-icon" aria-hidden="true">🚶</span>
+              <span class="goal-text">15-Minute Walk</span>
+              <span class="goal-check" aria-hidden="true">○</span>
+            </button>
+          </li>
+          <!-- Goal: Stretch -->
+          <li>
+            <button
+              id="goal-stretch"
+              class="wellness-btn"
+              aria-label="Mark basic stretch goal as complete"
+              aria-pressed="false"
+              onclick="toggleWellnessGoal('stretch', this)"
+            >
+              <span class="goal-icon" aria-hidden="true">🧘</span>
+              <span class="goal-text">Basic Stretch</span>
+              <span class="goal-check" aria-hidden="true">○</span>
+            </button>
+          </li>
+        </ul>
+
+        <!-- Wellness completion counter -->
+        <div class="wellness-counter" aria-live="polite">
+          <span id="wellness-count">0</span>/3 goals completed today
+          <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="3" aria-label="Wellness goal progress">
+            <div class="progress-fill" id="wellness-progress-fill"></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── Upcoming Medications (read-only schedule) ── -->
+      <article
+        class="schedule-panel card"
+        aria-labelledby="schedule-title"
+        role="region"
+      >
+        <h2 id="schedule-title" class="section-title">
+          <span aria-hidden="true">📅</span> Today's Schedule
+        </h2>
+        <div id="patient-schedule" class="schedule-list" aria-live="polite">
+          <p class="loading-msg">Loading your schedule…</p>
+        </div>
+      </article>
+
+      <!-- ── Emergency / Help ── -->
+      <article class="sos-panel card" role="region" aria-labelledby="sos-title">
+        <h2 id="sos-title" class="section-title" style="color:var(--danger);">
+          <span aria-hidden="true">🆘</span> Need Help?
+        </h2>
+        <button
+          class="sos-btn"
+          aria-label="Send emergency alert to your caretaker"
+          onclick="sendSOSAlert()"
+        >
+          <span aria-hidden="true">📞</span> Alert My Caretaker
+        </button>
+      </article>
+    </section><!-- /patient-view -->
+
+
+    <!-- ────────────────────────────────────────────────────
+         ②  PIN OVERLAY  (guards Caretaker view)
+         Keyboard-navigable, focus-trapped while open.
+    ──────────────────────────────────────────────────── -->
+    <div
+      id="pin-overlay"
+      class="pin-overlay hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pin-dialog-title"
+    >
+      <div class="pin-box" role="document">
+        <h2 id="pin-dialog-title" class="pin-title">
+          <span aria-hidden="true">🔒</span> Caretaker Access
+        </h2>
+        <p class="pin-hint">Enter your 4-digit PIN to continue</p>
+
+        <!-- Hidden PIN input (actual value) -->
+        <input
+          type="password"
+          id="pin-input"
+          class="pin-input"
+          inputmode="numeric"
+          pattern="[0-9]{4}"
+          maxlength="4"
+          autocomplete="off"
+          aria-label="4-digit PIN"
+          aria-describedby="pin-error"
+          onkeydown="handlePinKeydown(event)"
+        />
+
+        <!-- Visual dot display -->
+        <div class="pin-dots" aria-hidden="true">
+          <span class="pin-dot" id="dot-0"></span>
+          <span class="pin-dot" id="dot-1"></span>
+          <span class="pin-dot" id="dot-2"></span>
+          <span class="pin-dot" id="dot-3"></span>
+        </div>
+
+        <!-- Numpad -->
+        <div class="numpad" role="group" aria-label="PIN numpad">
+          <button class="numpad-btn" onclick="appendPin('1')" aria-label="1">1</button>
+          <button class="numpad-btn" onclick="appendPin('2')" aria-label="2">2</button>
+          <button class="numpad-btn" onclick="appendPin('3')" aria-label="3">3</button>
+          <button class="numpad-btn" onclick="appendPin('4')" aria-label="4">4</button>
+          <button class="numpad-btn" onclick="appendPin('5')" aria-label="5">5</button>
+          <button class="numpad-btn" onclick="appendPin('6')" aria-label="6">6</button>
+          <button class="numpad-btn" onclick="appendPin('7')" aria-label="7">7</button>
+          <button class="numpad-btn" onclick="appendPin('8')" aria-label="8">8</button>
+          <button class="numpad-btn" onclick="appendPin('9')" aria-label="9">9</button>
+          <button class="numpad-btn numpad-clear" onclick="clearPin()" aria-label="Clear PIN">⌫</button>
+          <button class="numpad-btn" onclick="appendPin('0')" aria-label="0">0</button>
+          <button class="numpad-btn numpad-enter" onclick="submitPin()" aria-label="Submit PIN">✓</button>
+        </div>
+
+        <!-- Error message -->
+        <p id="pin-error" class="pin-error" role="alert" aria-live="assertive"></p>
+
+        <!-- Cancel -->
+        <button class="pin-cancel-btn" onclick="closePinOverlay()" aria-label="Cancel and go back">
+          Cancel
+        </button>
+      </div>
+    </div><!-- /pin-overlay -->
+
+
+    <!-- ────────────────────────────────────────────────────
+         ③  CARETAKER VIEW  (hidden until PIN passes)
+    ──────────────────────────────────────────────────── -->
+    <section
+      id="caretaker-view"
+      class="view hidden"
+      aria-label="Caretaker command center dashboard"
+    >
+      <!-- Dashboard header strip -->
+      <div class="ct-header card">
+        <div>
+          <h1 class="ct-title">Command Center <span aria-hidden="true">🩺</span></h1>
+          <p class="ct-subtitle" id="ct-date-label"></p>
+        </div>
+        <button
+          class="logout-btn"
+          onclick="caretakerLogout()"
+          aria-label="Lock caretaker view"
+        >
+          <span aria-hidden="true">🔒</span> Lock
+        </button>
+      </div>
+
+      <!-- ── Stats Row ── -->
+      <div class="stats-row" role="list" aria-label="Adherence statistics">
+        <div class="stat-card card" role="listitem">
+          <span class="stat-value" id="stat-taken" aria-live="polite">–</span>
+          <span class="stat-label">Taken Today</span>
+        </div>
+        <div class="stat-card card" role="listitem">
+          <span class="stat-value" id="stat-missed" aria-live="polite" style="color:var(--danger)">–</span>
+          <span class="stat-label">Missed Today</span>
+        </div>
+        <div class="stat-card card" role="listitem">
+          <span class="stat-value" id="stat-upcoming" aria-live="polite" style="color:var(--warning)">–</span>
+          <span class="stat-label">Upcoming</span>
+        </div>
+        <div class="stat-card card" role="listitem">
+          <span class="stat-value" id="stat-adherence" aria-live="polite" style="color:var(--success)">–</span>
+          <span class="stat-label">Adherence %</span>
+        </div>
+      </div>
+
+      <!-- ── Smart Prescription Parser ── -->
+      <article
+        class="parser-panel card"
+        aria-labelledby="parser-title"
+        role="region"
+      >
+        <h2 id="parser-title" class="section-title">
+          <span aria-hidden="true">🤖</span> AI Prescription Parser
+          <span class="badge badge-ai">Powered by Gemini</span>
+        </h2>
+        <p class="parser-desc">
+          Snap or upload a photo of any prescription — even messy handwriting —
+          and our AI will extract the medication schedule automatically.
+        </p>
+
+        <!-- Camera / file input -->
+        <label for="prescription-img" class="upload-label" aria-label="Upload or capture prescription image">
+          <span aria-hidden="true">📸</span>
+          <span>Tap to Capture / Upload Prescription</span>
+          <input
+            type="file"
+            id="prescription-img"
+            accept="image/*"
+            capture="environment"
+            aria-label="Upload prescription image"
+            onchange="handlePrescriptionImage(event)"
+          />
+        </label>
+
+        <!-- Preview of uploaded image -->
+        <div id="img-preview-wrap" class="img-preview-wrap hidden" aria-live="polite">
+          <img id="img-preview" class="img-preview" alt="Uploaded prescription preview" />
+        </div>
+
+        <!-- AI parse button -->
+        <button
+          id="btn-parse"
+          class="parse-btn hidden"
+          aria-label="Parse prescription with AI"
+          onclick="parsePrescription()"
+        >
+          <span aria-hidden="true">🧠</span> Analyse with AI
+        </button>
+
+        <!-- Spinner / status -->
+        <div id="parse-status" class="parse-status" role="status" aria-live="polite"></div>
+
+        <!-- Extracted data preview (editable before saving) -->
+        <div id="extracted-data" class="extracted-data hidden" aria-live="polite">
+          <h3>Extracted Medications <span class="badge badge-success">Review & Save</span></h3>
+          <div id="extracted-list" class="extracted-list"></div>
+          <button
+            class="save-meds-btn"
+            aria-label="Save extracted medications to database"
+            onclick="saveExtractedMedications()"
+          >
+            <span aria-hidden="true">💾</span> Save to Schedule
+          </button>
+        </div>
+      </article>
+
+      <!-- ── Adherence Log ── -->
+      <article
+        class="log-panel card"
+        aria-labelledby="log-title"
+        role="region"
+      >
+        <h2 id="log-title" class="section-title">
+          <span aria-hidden="true">📋</span> Adherence Log
+        </h2>
+        <div id="adherence-log" class="adherence-log" aria-live="polite">
+          <p class="loading-msg">Loading adherence log…</p>
+        </div>
+      </article>
+
+      <!-- ── Schedule Manager ── -->
+      <article
+        class="schedule-mgr card"
+        aria-labelledby="schedule-mgr-title"
+        role="region"
+      >
+        <h2 id="schedule-mgr-title" class="section-title">
+          <span aria-hidden="true">➕</span> Add Medication Manually
+        </h2>
+
+        <form
+          id="add-med-form"
+          class="add-med-form"
+          onsubmit="addMedicationManually(event)"
+          aria-label="Add new medication form"
+          novalidate
+        >
+          <div class="form-row">
+            <div class="form-group">
+              <label for="med-name-input">Medication Name *</label>
+              <input
+                type="text"
+                id="med-name-input"
+                placeholder="e.g. Metformin 500mg"
+                required
+                aria-required="true"
+              />
+            </div>
+            <div class="form-group">
+              <label for="med-time-input">Time *</label>
+              <input
+                type="time"
+                id="med-time-input"
+                required
+                aria-required="true"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="med-dose-input">Dosage</label>
+              <input
+                type="text"
+                id="med-dose-input"
+                placeholder="e.g. 1 tablet"
+              />
+            </div>
+            <div class="form-group">
+              <label for="med-notes-input">Notes</label>
+              <input
+                type="text"
+                id="med-notes-input"
+                placeholder="e.g. Take with food"
+              />
+            </div>
+          </div>
+          <button type="submit" class="add-btn" aria-label="Add medication to schedule">
+            <span aria-hidden="true">➕</span> Add Medication
+          </button>
+        </form>
+
+        <!-- Current medication schedule (editable list) -->
+        <div id="caretaker-schedule" class="schedule-list ct-schedule-list" aria-live="polite">
+          <p class="loading-msg">Loading schedule…</p>
+        </div>
+      </article>
+
+      <!-- ── Upcoming Appointments ── -->
+      <article
+        class="appointments-panel card"
+        aria-labelledby="appt-title"
+        role="region"
+      >
+        <h2 id="appt-title" class="section-title">
+          <span aria-hidden="true">🗓️</span> Upcoming Appointments
+        </h2>
+        <div id="appointments-list" class="appointments-list" aria-live="polite">
+          <p class="loading-msg">Loading appointments…</p>
+        </div>
+        <form id="add-appt-form" class="add-med-form" onsubmit="addAppointment(event)" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="appt-title-input">Appointment / Doctor</label>
+              <input type="text" id="appt-title-input" placeholder="e.g. Dr. Smith – Cardiology" />
+            </div>
+            <div class="form-group">
+              <label for="appt-date-input">Date & Time</label>
+              <input type="datetime-local" id="appt-date-input" />
+            </div>
+          </div>
+          <button type="submit" class="add-btn">
+            <span aria-hidden="true">➕</span> Add Appointment
+          </button>
+        </form>
+      </article>
+
+    </section><!-- /caretaker-view -->
+
+  </main><!-- /main-wrapper -->
+
+  <!-- ══════════════════════════════════════════════════════
+       GLOBAL TOAST NOTIFICATION
+       Rendered on top of everything via fixed positioning.
+  ═══════════════════════════════════════════════════════ -->
+  <div
+    id="toast"
+    class="toast hidden"
+    role="alert"
+    aria-live="assertive"
+    aria-atomic="true"
+  ></div>
+
+  <!-- ══════════════════════════════════════════════════════
+       CONFETTI CANVAS (celebration effect on dose confirm)
+  ═══════════════════════════════════════════════════════ -->
+  <canvas id="confetti-canvas" class="confetti-canvas" aria-hidden="true"></canvas>
+
+  <!-- ══════════════════════════════════════════════════════
+       SCRIPTS  (order matters: config → app)
+  ═══════════════════════════════════════════════════════ -->
+  <script src="firebase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
