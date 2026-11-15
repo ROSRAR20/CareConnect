@@ -43,12 +43,15 @@
    These keys are intentionally client-side — security is
    enforced by Firebase Rules, not by keeping keys secret.
 ════════════════════════════════════════════════════════════ */
+
+const GEMINI_API_KEY = prompt("Please enter your Gemini API Key to run the Smart Parser:");
+
 const CONFIG = {
-  /** Caretaker access PIN (4 digits).  Change before deploy! */
+  /** Caretaker access PIN (4 digits). Default: 1234 */
   CARETAKER_PIN: '1234',
 
-  /** Gemini API key — obtain from https://aistudio.google.com */
-  GEMINI_API_KEY: 'YOUR_GEMINI_API_KEY',
+  /** Gemini API key */
+  GEMINI_API_KEY: typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '',
 
   /** Gemini model endpoint */
   GEMINI_MODEL: 'gemini-1.5-flash',
@@ -771,7 +774,7 @@ function handlePrescriptionImage(event) {
     previewWrap.classList.remove('hidden');
 
     // Show analyse button
-    document.getElementById('btn-parse').classList.remove('hidden');
+    document.getElementById('parse-btn').classList.remove('hidden');
     document.getElementById('parse-status').textContent = '';
     document.getElementById('extracted-data').classList.add('hidden');
   };
@@ -791,12 +794,25 @@ function handlePrescriptionImage(event) {
  * On failure: shows an error toast with the raw response for debugging.
  */
 async function parsePrescription() {
+  const cameraInput = document.getElementById('camera-input');
+  if (!STATE.prescriptionImageBase64 && cameraInput && cameraInput.files && cameraInput.files[0]) {
+    const file = cameraInput.files[0];
+    STATE.prescriptionImageMime = file.type;
+    STATE.prescriptionImageBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
   if (!STATE.prescriptionImageBase64) {
-    showToast('Please upload an image first.', 'warning');
+    showToast('Please capture or select a prescription image first.', 'warning');
     return;
   }
 
-  if (CONFIG.GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
+  const apiKey = CONFIG.GEMINI_API_KEY || (typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '');
+  if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
     // Provide a helpful demo response so evaluators can see the UI flow
     console.warn('[Gemini] No API key set — using demo parsed data');
     renderExtractedMedications([
@@ -808,11 +824,11 @@ async function parsePrescription() {
 
   // Show loading state
   const statusEl  = document.getElementById('parse-status');
-  const parseBtn  = document.getElementById('btn-parse');
+  const parseBtn  = document.getElementById('parse-btn');
   parseBtn.disabled = true;
   statusEl.innerHTML = '<div class="spinner"></div> Analysing prescription with AI…';
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${CONFIG.GEMINI_API_KEY}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
   /**
    * Carefully crafted prompt that:
@@ -1436,6 +1452,57 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-/* ── Expose globally for inline event attributes in index.html ── */
-// (Normally we'd attach event listeners here, but keeping inline
-//  onclick handlers improves readability for hackathon evaluators.)
+/* ════════════════════════════════════════════════════════════
+   §17  GLOBAL EXPORTS & FAIL-SAFE EVENT LISTENERS
+   Exposes all functions to window for inline onclick handlers,
+   and registers explicit event listeners for guaranteed execution.
+════════════════════════════════════════════════════════════ */
+window.switchView = switchView;
+window.initCaretakerAccess = initCaretakerAccess;
+window.appendPin = appendPin;
+window.clearPin = clearPin;
+window.submitPin = submitPin;
+window.closePinOverlay = closePinOverlay;
+window.handlePinKeydown = handlePinKeydown;
+window.caretakerLogout = caretakerLogout;
+window.confirmMedication = confirmMedication;
+window.toggleWellnessGoal = toggleWellnessGoal;
+window.sendSOSAlert = sendSOSAlert;
+window.handlePrescriptionImage = handlePrescriptionImage;
+window.parsePrescription = parsePrescription;
+window.saveExtractedMedications = saveExtractedMedications;
+window.addMedicationManually = addMedicationManually;
+window.deleteMedication = deleteMedication;
+window.addAppointment = addAppointment;
+
+// Explicit event listener binding to guarantee buttons always respond
+document.addEventListener('DOMContentLoaded', () => {
+  const btnCaretaker = document.getElementById('btn-caretaker-view');
+  if (btnCaretaker) {
+    btnCaretaker.addEventListener('click', (e) => {
+      e.preventDefault();
+      initCaretakerAccess();
+    });
+  }
+
+  const btnPatient = document.getElementById('btn-patient-view');
+  if (btnPatient) {
+    btnPatient.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchView('patient');
+    });
+  }
+
+  const cameraInput = document.getElementById('camera-input');
+  if (cameraInput) {
+    cameraInput.addEventListener('change', (e) => handlePrescriptionImage(e));
+  }
+
+  const parseBtn = document.getElementById('parse-btn');
+  if (parseBtn) {
+    parseBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      parsePrescription();
+    });
+  }
+});

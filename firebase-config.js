@@ -2,66 +2,34 @@
  * ============================================================
  * firebase-config.js
  * ============================================================
- * Initialises the Firebase app and exports `db` (Firestore).
- *
- * HOW TO USE:
- *   1. Create a Firebase project at https://console.firebase.google.com
- *   2. Add a "Web app" to get your firebaseConfig object.
- *   3. Enable Firestore (Start in TEST MODE for hackathon dev).
- *   4. Replace every placeholder value below with your real
- *      project credentials.
- *
- * SECURITY NOTE:
- *   These keys are intentionally client-side — Firebase enforces
- *   access via Firestore Security Rules, not secret API keys.
- *   For production, tighten the rules to authenticated users only.
- *
- * FIRESTORE COLLECTIONS USED BY THIS APP:
- *   medications/     — scheduled medication slots
- *   adherenceLogs/   — patient YES/NO confirmation records
- *   wellnessLogs/    — daily wellness goal completions
- *   appointments/    — upcoming doctor appointments
+ * Initialises Firebase Firestore in Compat mode for friction-less
+ * reads and writes across the application without build tooling.
  * ============================================================
  */
 
 // ── Your Firebase project configuration ────────────────────
-// Replace each value with the ones from your Firebase console
-// (Project Settings → Your apps → SDK setup and configuration).
 const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+  apiKey: "AIzaSyCJTEurnRvuwiGtgtVM2NC7lmi81EvDsqU",
+  authDomain: "eldercare-94cda.firebaseapp.com",
+  projectId: "eldercare-94cda",
+  storageBucket: "eldercare-94cda.firebasestorage.app",
+  messagingSenderId: "271860189897",
+  appId: "1:271860189897:web:4b2bdf3d3f7f52b02b5b18",
+  measurementId: "G-14ZTXZK6N9"
 };
 
-// ── Initialise Firebase (compat SDK — no bundler required) ─
-firebase.initializeApp(firebaseConfig);
+// ── Initialise Firebase (using compat SDK loaded via CDN) ───
+if (typeof firebase !== 'undefined') {
+  if (!firebase.apps || !firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+}
 
 /**
- * Firestore database instance.
- *
- * Exported as a global so app.js can import it without ES-module
- * syntax (keeping the project bundler-free for hackathon simplicity).
- *
- * Usage in app.js:
- *   const ref = db.collection('medications').doc('morning');
+ * Global Firestore database instance.
+ * Accessible globally as `db` and `window.db` across all scripts.
  */
-const db = firebase.firestore();
+var db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+window.db = db;
 
-// ── Optional: Enable offline persistence for resilience ─────
-// Uncomment the block below if you want the app to work when
-// the user briefly loses their internet connection.
-//
-// db.enablePersistence({ synchronizeTabs: true })
-//   .then(() => console.log('[Firebase] Offline persistence enabled.'))
-//   .catch(err => {
-//     if (err.code === 'failed-precondition') {
-//       console.warn('[Firebase] Persistence unavailable — multiple tabs open.');
-//     } else if (err.code === 'unimplemented') {
-//       console.warn('[Firebase] Persistence not supported by this browser.');
-//     }
-//   });
-
-console.log('[Firebase] Firestore initialised for project:', firebaseConfig.projectId);
+console.log('[Firebase] Firestore initialized for project:', firebaseConfig.projectId);

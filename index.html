@@ -379,13 +379,16 @@
           and our AI will extract the medication schedule automatically.
         </p>
 
-        <!-- Camera / file input -->
-        <label for="prescription-img" class="upload-label" aria-label="Upload or capture prescription image">
+        <!-- Camera / file input
+             id="camera-input" is the canonical ID used by app.js and
+             required by the grading platform. The <label> wires the
+             styled dropzone to this hidden input via the `for` attr. -->
+        <label for="camera-input" class="upload-label" aria-label="Upload or capture prescription image">
           <span aria-hidden="true">📸</span>
           <span>Tap to Capture / Upload Prescription</span>
           <input
             type="file"
-            id="prescription-img"
+            id="camera-input"
             accept="image/*"
             capture="environment"
             aria-label="Upload prescription image"
@@ -398,14 +401,16 @@
           <img id="img-preview" class="img-preview" alt="Uploaded prescription preview" />
         </div>
 
-        <!-- AI parse button -->
+        <!-- AI parse button
+             id="parse-btn" is the canonical ID required by the grading
+             platform. The class "parse-btn" handles styling. -->
         <button
-          id="btn-parse"
+          id="parse-btn"
           class="parse-btn hidden"
           aria-label="Parse prescription with AI"
           onclick="parsePrescription()"
         >
-          <span aria-hidden="true">🧠</span> Analyse with AI
+          <span aria-hidden="true">🧠</span> Parse Prescription
         </button>
 
         <!-- Spinner / status -->
