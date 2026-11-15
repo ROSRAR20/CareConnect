@@ -440,18 +440,36 @@ function getDemoSchedule() {
 }
 
 /**
- * Determines which medication slot is "current" (next upcoming or the most
- * recently due one that has not been confirmed yet).
+ * Determines which medication slot is "current".
+ * Keeps a medication active until a full 60 minutes have passed after its scheduled time.
  * Updates STATE.currentMed and re-renders the patient medication panel.
  */
 function determineCurrentMedication() {
-  const now      = new Date();
-  const hhmm     = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const upcoming = STATE.schedule.filter(m => m.time >= hhmm);
-  const past     = STATE.schedule.filter(m => m.time < hhmm);
+  if (!STATE.schedule || !STATE.schedule.length) {
+    STATE.currentMed = null;
+    renderCurrentMedPanel();
+    return;
+  }
 
-  // Prefer the next upcoming med; fall back to last past med
-  STATE.currentMed = upcoming.length ? upcoming[0] : (past.length ? past[past.length - 1] : null);
+  const now = new Date();
+
+  // Sort schedule by scheduled time
+  const sorted = [...STATE.schedule].sort((a, b) => a.time.localeCompare(b.time));
+
+  // Find the first medication where currentTime is less than medTime + 60 minutes
+  const activeMed = sorted.find(med => {
+    if (!med.time || !med.time.includes(':')) return false;
+    const [hours, minutes] = med.time.split(':').map(Number);
+    const medTime = new Date();
+    medTime.setHours(hours, minutes, 0, 0);
+
+    const gracePeriodEnd = new Date(medTime.getTime() + 60 * 60 * 1000);
+    return now < gracePeriodEnd;
+  });
+
+  // The first medication in the sorted array that meets this condition becomes STATE.currentMed.
+  // If all medications for today have passed their grace window, fall back to the last med.
+  STATE.currentMed = activeMed || sorted[sorted.length - 1];
 
   renderCurrentMedPanel();
 }
@@ -1582,5 +1600,8 @@ window.addMedicationManually = addMedicationManually;
 window.deleteMedication = deleteMedication;
 window.addAppointment = addAppointment;
 window.renderCurrentMedPanel = renderCurrentMedPanel;
+window.determineCurrentMedication = determineCurrentMedication;
+window.updateNextMedication = determineCurrentMedication;
+window.updatePatientDashboard = determineCurrentMedication;
 window.timeToMinutes = timeToMinutes;
 window.getOneHourPriorFormatted = getOneHourPriorFormatted;

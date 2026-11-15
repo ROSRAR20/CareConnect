@@ -26,7 +26,7 @@ Each array element must have exactly these fields:
   "nickname": "Generate a short, elder-friendly common name based on the medical purpose. CRITICAL: If multiple medications treat the exact same condition, make their nicknames distinctly unique so the patient doesn't confuse them (e.g., 'Primary BP Pill' and 'Secondary BP Pill', or append the dosage like 'BP Pill - 10mg').",
   "time": "Scheduled time in 24-hour HH:MM format (string)",
   "dose": "Dosage instruction (string)",
-  "notes": "Any additional notes (string, empty string if none)"
+  "notes": "Extract any specific consumption instructions, prioritizing meal timings (e.g., 'Before food', 'After meals', 'On an empty stomach'). If none, leave empty."
 }
 If a time is ambiguous, create multiple entries. If unreadable, use best clinical judgment. If none extracted, return [].`;
 
