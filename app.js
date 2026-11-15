@@ -259,13 +259,14 @@ async function loadSchedule() {
       ? snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       : getDemoSchedule();
 
+    await loadTodayAdherence();
     renderPatientSchedule();
     determineCurrentMedication();
-    loadTodayAdherence();
   } catch (err) {
     console.error('[Firestore] loadSchedule error:', err);
     // --- AI FALLBACK ---
     STATE.schedule = getDemoSchedule();
+    await loadTodayAdherence();
     renderPatientSchedule();
     determineCurrentMedication();
   }
@@ -279,6 +280,11 @@ function getDemoSchedule() {
   ];
 }
 
+function isMedTakenToday(medId) {
+  const logs = STATE.todayLogs || [];
+  return logs.some(l => l.medId === medId && l.taken);
+}
+
 function determineCurrentMedication() {
   if (!STATE.schedule || !STATE.schedule.length) {
     STATE.currentMed = null;
@@ -288,14 +294,21 @@ function determineCurrentMedication() {
 
   const now = new Date();
   const sorted = [...STATE.schedule].sort((a, b) => a.time.localeCompare(b.time));
+  const unTakenMeds = sorted.filter(med => !isMedTakenToday(med.id));
 
-  const activeMed = sorted.find(med => {
+  if (!unTakenMeds.length) {
+    STATE.currentMed = null;
+    renderCurrentMedPanel();
+    return;
+  }
+
+  const activeMed = unTakenMeds.find(med => {
     if (!med.time || !med.time.includes(':')) return false;
     const medTime = parseTodayTime(med.time);
     return now < new Date(medTime.getTime() + 60 * 60 * 1000);
   });
 
-  STATE.currentMed = activeMed || sorted[sorted.length - 1];
+  STATE.currentMed = activeMed || unTakenMeds[unTakenMeds.length - 1];
   renderCurrentMedPanel();
 }
 
@@ -325,11 +338,16 @@ function renderCurrentMedPanel() {
   const feedbackEl = $('med-feedback');
 
   if (!med) {
-    if (nameEl) nameEl.textContent = 'No medications scheduled';
-    if (timeEl) timeEl.textContent = '';
+    const allTaken = STATE.schedule && STATE.schedule.length > 0 && STATE.schedule.every(m => isMedTakenToday(m.id));
+    if (nameEl) nameEl.textContent = allTaken ? 'All medications completed today! 🎉' : 'No medications scheduled';
+    if (timeEl) timeEl.textContent = allTaken ? 'Great job staying on track!' : '';
     if (doseEl) doseEl.textContent = '';
     if (btnYes) btnYes.disabled = true;
     if (btnNo)  btnNo.disabled = true;
+    if (feedbackEl) {
+      feedbackEl.textContent = '';
+      feedbackEl.className = 'med-feedback';
+    }
     return;
   }
 
@@ -400,8 +418,10 @@ function getScheduleItemStatus(med) {
   const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
   const log = STATE.todayLogs || [];
-  const entry = log.find(l => l.medId === med.id);
-  if (entry) return entry.taken ? 'taken' : 'missed';
+  const takenEntry = log.find(l => l.medId === med.id && l.taken);
+  if (takenEntry) return 'taken';
+  const missedEntry = log.find(l => l.medId === med.id && !l.taken);
+  if (missedEntry) return 'missed';
 
   return med.time > hhmm ? 'upcoming' : 'missed';
 }
@@ -417,6 +437,17 @@ async function confirmMedication(taken) {
   const feedbackEl = $('med-feedback');
 
   setConfirmBtnsEnabled(false);
+
+  // Optimistically register today's adherence in local state
+  if (!STATE.todayLogs) STATE.todayLogs = [];
+  STATE.todayLogs.push({
+    medId:     med.id,
+    medName:   med.name,
+    time:      med.time,
+    taken,
+    timestamp: new Date(),
+    date:      todayDateString(),
+  });
 
   try {
     const logEntry = {
@@ -441,11 +472,6 @@ async function confirmMedication(taken) {
       counterEl.textContent = STATE.doseCount;
       counterEl.classList.add('bump');
       setTimeout(() => counterEl.classList.remove('bump'), 350);
-    }
-
-    if (feedbackEl) {
-      feedbackEl.textContent = '🎉 Wonderful! Keep it up!';
-      feedbackEl.className   = 'med-feedback success';
     }
 
     launchConfetti();
@@ -487,7 +513,19 @@ async function confirmMedication(taken) {
 
   await loadTodayAdherence();
   renderPatientSchedule();
-  setTimeout(() => setConfirmBtnsEnabled(true), 2000);
+  determineCurrentMedication();
+
+  if (!taken) {
+    setTimeout(() => {
+      if (STATE.currentMed) {
+        const medTime = parseTodayTime(STATE.currentMed.time);
+        const diffMinutes = (new Date() - medTime) / (1000 * 60);
+        if (diffMinutes >= -60 && diffMinutes <= 60) {
+          setConfirmBtnsEnabled(true);
+        }
+      }
+    }, 1200);
+  }
 }
 
 function setConfirmBtnsEnabled(enabled) {
@@ -817,9 +855,12 @@ async function updateCaretakerStats() {
   let upcoming = 0;
 
   schedule.forEach(med => {
-    const log = logs.find(l => l.medId === med.id);
-    if (log) {
-      log.taken ? taken++ : missed++;
+    const takenLog = logs.find(l => l.medId === med.id && l.taken);
+    const missedLog = logs.find(l => l.medId === med.id && !l.taken);
+    if (takenLog) {
+      taken++;
+    } else if (missedLog) {
+      missed++;
     } else {
       med.time <= hhmm ? missed++ : upcoming++;
     }
@@ -844,7 +885,14 @@ async function loadTodayAdherence() {
     const snapshot = await db.collection('adherenceLogs')
       .where('date', '==', todayDateString())
       .get();
-    STATE.todayLogs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const remoteLogs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const merged = [...remoteLogs];
+    (STATE.todayLogs || []).forEach(local => {
+      if (!merged.some(m => m.medId === local.medId && m.taken === local.taken)) {
+        merged.push(local);
+      }
+    });
+    STATE.todayLogs = merged;
   } catch (err) {
     console.warn('[Firestore] loadTodayAdherence error (offline?):', err);
     STATE.todayLogs = STATE.todayLogs || [];
@@ -1132,3 +1180,5 @@ window.escapeHtml = escapeHtml;
 window.todayDateString = todayDateString;
 window.timeToMinutes = timeToMinutes;
 window.getOneHourPriorFormatted = getOneHourPriorFormatted;
+window.isMedTakenToday = isMedTakenToday;
+window.STATE = STATE;
