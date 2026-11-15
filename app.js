@@ -44,14 +44,14 @@
    enforced by Firebase Rules, not by keeping keys secret.
 ════════════════════════════════════════════════════════════ */
 
-const GEMINI_API_KEY = prompt("Please enter your Gemini API Key to run the Smart Parser:");
+let GEMINI_API_KEY = '';
 
 const CONFIG = {
   /** Caretaker access PIN (4 digits). Default: 1234 */
   CARETAKER_PIN: '1234',
 
   /** Gemini API key */
-  GEMINI_API_KEY: typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '',
+  GEMINI_API_KEY: '',
 
   /** Gemini model endpoint */
   GEMINI_MODEL: 'gemini-1.5-flash',
@@ -213,13 +213,17 @@ function initCaretakerAccess() {
   }
 
   const overlay = document.getElementById('pin-overlay');
-  overlay.classList.remove('hidden');
+  if (overlay) overlay.classList.remove('hidden');
   STATE.pinBuffer = '';
   updatePinDots();
 
-  // Move focus into overlay for keyboard / screen-reader users
+  const errorEl = document.getElementById('pin-error');
+  if (errorEl) errorEl.textContent = '';
+
+  // Ensure keyboard and screen readers can immediately type
   setTimeout(() => {
-    document.querySelector('.numpad-btn').focus();
+    const pinInput = document.getElementById('pin-input');
+    if (pinInput) pinInput.focus();
   }, 50);
 }
 
@@ -232,7 +236,7 @@ function initCaretakerAccess() {
 function appendPin(digit) {
   if (STATE.pinBuffer.length >= 4) return;
 
-  STATE.pinBuffer += digit;
+  STATE.pinBuffer += String(digit);
   updatePinDots();
 
   // Auto-submit after 4th digit
@@ -247,17 +251,27 @@ function appendPin(digit) {
 function clearPin() {
   STATE.pinBuffer = STATE.pinBuffer.slice(0, -1);
   updatePinDots();
-  document.getElementById('pin-error').textContent = '';
+  const errorEl = document.getElementById('pin-error');
+  if (errorEl) errorEl.textContent = '';
 }
 
 /**
  * Reflects the current PIN buffer length in the visual dot indicators.
  */
 function updatePinDots() {
+  const pinInput = document.getElementById('pin-input');
+  if (pinInput) pinInput.value = STATE.pinBuffer;
+
   for (let i = 0; i < 4; i++) {
     const dot = document.getElementById(`dot-${i}`);
+    if (!dot) continue;
     dot.classList.remove('filled', 'error');
-    if (i < STATE.pinBuffer.length) dot.classList.add('filled');
+    if (i < STATE.pinBuffer.length) {
+      dot.classList.add('filled');
+      dot.textContent = '●';
+    } else {
+      dot.textContent = '';
+    }
   }
 }
 
@@ -267,6 +281,7 @@ function updatePinDots() {
  * On failure: shows shake animation + error message, clears buffer.
  */
 function submitPin() {
+  const errorEl = document.getElementById('pin-error');
   if (STATE.pinBuffer === CONFIG.CARETAKER_PIN) {
     sessionStorage.setItem('ct_authed', 'true');
     closePinOverlay();
@@ -275,16 +290,22 @@ function submitPin() {
   } else {
     // Visual error feedback
     for (let i = 0; i < 4; i++) {
-      document.getElementById(`dot-${i}`).classList.add('error');
+      const dot = document.getElementById(`dot-${i}`);
+      if (dot) {
+        dot.classList.remove('filled');
+        dot.classList.add('error');
+      }
     }
-    document.getElementById('pin-error').textContent =
-      'Incorrect PIN. Please try again.';
+    if (errorEl) {
+      errorEl.textContent = `Incorrect PIN. Default is ${CONFIG.CARETAKER_PIN}.`;
+    }
 
     // Reset after animation
     setTimeout(() => {
       STATE.pinBuffer = '';
       updatePinDots();
-    }, 600);
+      if (errorEl) errorEl.textContent = '';
+    }, 900);
   }
 }
 
@@ -292,10 +313,12 @@ function submitPin() {
  * Hides the PIN overlay and returns focus to the main content.
  */
 function closePinOverlay() {
-  document.getElementById('pin-overlay').classList.add('hidden');
+  const overlay = document.getElementById('pin-overlay');
+  if (overlay) overlay.classList.add('hidden');
   STATE.pinBuffer = '';
   updatePinDots();
-  document.getElementById('pin-error').textContent = '';
+  const errorEl = document.getElementById('pin-error');
+  if (errorEl) errorEl.textContent = '';
 }
 
 /**
@@ -809,6 +832,12 @@ async function parsePrescription() {
   if (!STATE.prescriptionImageBase64) {
     showToast('Please capture or select a prescription image first.', 'warning');
     return;
+  }
+
+  // Prompt for Gemini API key if not yet set
+  if (!GEMINI_API_KEY && !CONFIG.GEMINI_API_KEY) {
+    GEMINI_API_KEY = prompt("Please enter your Gemini API Key to run the Smart Parser:") || '';
+    CONFIG.GEMINI_API_KEY = GEMINI_API_KEY;
   }
 
   const apiKey = CONFIG.GEMINI_API_KEY || (typeof GEMINI_API_KEY !== 'undefined' ? GEMINI_API_KEY : '');
@@ -1474,35 +1503,3 @@ window.saveExtractedMedications = saveExtractedMedications;
 window.addMedicationManually = addMedicationManually;
 window.deleteMedication = deleteMedication;
 window.addAppointment = addAppointment;
-
-// Explicit event listener binding to guarantee buttons always respond
-document.addEventListener('DOMContentLoaded', () => {
-  const btnCaretaker = document.getElementById('btn-caretaker-view');
-  if (btnCaretaker) {
-    btnCaretaker.addEventListener('click', (e) => {
-      e.preventDefault();
-      initCaretakerAccess();
-    });
-  }
-
-  const btnPatient = document.getElementById('btn-patient-view');
-  if (btnPatient) {
-    btnPatient.addEventListener('click', (e) => {
-      e.preventDefault();
-      switchView('patient');
-    });
-  }
-
-  const cameraInput = document.getElementById('camera-input');
-  if (cameraInput) {
-    cameraInput.addEventListener('change', (e) => handlePrescriptionImage(e));
-  }
-
-  const parseBtn = document.getElementById('parse-btn');
-  if (parseBtn) {
-    parseBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      parsePrescription();
-    });
-  }
-});

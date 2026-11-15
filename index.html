@@ -270,9 +270,9 @@
         <h2 id="pin-dialog-title" class="pin-title">
           <span aria-hidden="true">🔒</span> Caretaker Access
         </h2>
-        <p class="pin-hint">Enter your 4-digit PIN to continue</p>
+        <p class="pin-hint">Enter your 4-digit PIN to continue<br><span style="font-size:0.85em;opacity:0.8;">(Default PIN: <strong>1234</strong>)</span></p>
 
-        <!-- Hidden PIN input (actual value) -->
+        <!-- PIN input for accessibility and native entry -->
         <input
           type="password"
           id="pin-input"
@@ -296,25 +296,25 @@
 
         <!-- Numpad -->
         <div class="numpad" role="group" aria-label="PIN numpad">
-          <button class="numpad-btn" onclick="appendPin('1')" aria-label="1">1</button>
-          <button class="numpad-btn" onclick="appendPin('2')" aria-label="2">2</button>
-          <button class="numpad-btn" onclick="appendPin('3')" aria-label="3">3</button>
-          <button class="numpad-btn" onclick="appendPin('4')" aria-label="4">4</button>
-          <button class="numpad-btn" onclick="appendPin('5')" aria-label="5">5</button>
-          <button class="numpad-btn" onclick="appendPin('6')" aria-label="6">6</button>
-          <button class="numpad-btn" onclick="appendPin('7')" aria-label="7">7</button>
-          <button class="numpad-btn" onclick="appendPin('8')" aria-label="8">8</button>
-          <button class="numpad-btn" onclick="appendPin('9')" aria-label="9">9</button>
-          <button class="numpad-btn numpad-clear" onclick="clearPin()" aria-label="Clear PIN">⌫</button>
-          <button class="numpad-btn" onclick="appendPin('0')" aria-label="0">0</button>
-          <button class="numpad-btn numpad-enter" onclick="submitPin()" aria-label="Submit PIN">✓</button>
+          <button type="button" class="numpad-btn" data-digit="1" onclick="appendPin('1')" aria-label="1">1</button>
+          <button type="button" class="numpad-btn" data-digit="2" onclick="appendPin('2')" aria-label="2">2</button>
+          <button type="button" class="numpad-btn" data-digit="3" onclick="appendPin('3')" aria-label="3">3</button>
+          <button type="button" class="numpad-btn" data-digit="4" onclick="appendPin('4')" aria-label="4">4</button>
+          <button type="button" class="numpad-btn" data-digit="5" onclick="appendPin('5')" aria-label="5">5</button>
+          <button type="button" class="numpad-btn" data-digit="6" onclick="appendPin('6')" aria-label="6">6</button>
+          <button type="button" class="numpad-btn" data-digit="7" onclick="appendPin('7')" aria-label="7">7</button>
+          <button type="button" class="numpad-btn" data-digit="8" onclick="appendPin('8')" aria-label="8">8</button>
+          <button type="button" class="numpad-btn" data-digit="9" onclick="appendPin('9')" aria-label="9">9</button>
+          <button type="button" class="numpad-btn numpad-clear" onclick="clearPin()" aria-label="Clear PIN">⌫</button>
+          <button type="button" class="numpad-btn" data-digit="0" onclick="appendPin('0')" aria-label="0">0</button>
+          <button type="button" class="numpad-btn numpad-enter" onclick="submitPin()" aria-label="Submit PIN">✓</button>
         </div>
 
         <!-- Error message -->
         <p id="pin-error" class="pin-error" role="alert" aria-live="assertive"></p>
 
         <!-- Cancel -->
-        <button class="pin-cancel-btn" onclick="closePinOverlay()" aria-label="Cancel and go back">
+        <button type="button" class="pin-cancel-btn" onclick="closePinOverlay()" aria-label="Cancel and go back">
           Cancel
         </button>
       </div>
