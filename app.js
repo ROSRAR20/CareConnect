@@ -463,6 +463,22 @@ async function confirmMedication(taken) {
       feedbackEl.className   = 'med-feedback error';
     }
 
+    // --- EMAILJS: Send Caretaker Alert ---
+    const templateParams = {
+      patient_name: "Grandma Rose",
+      medication_name: STATE.currentMed ? (STATE.currentMed.nickname || STATE.currentMed.name) : "",
+      time: STATE.currentMed ? STATE.currentMed.time : "",
+      message: "Missed dose alert triggered from the CareConnect Patient Dashboard."
+    };
+
+    emailjs.send("service_b9op7vi", "template_ytwtarz", templateParams)
+      .then(function(response) {
+        console.log('✅ Caretaker Email Sent!', response.status, response.text);
+        showToast("Caretaker Notified", "info");
+      }, function(error) {
+        console.log('❌ Email Failed...', error);
+      });
+
     startEmpathyTimer(med);
     showToast("Reminder set — you have 45 minutes! ⏰", 'warning');
   }
