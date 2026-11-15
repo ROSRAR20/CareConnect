@@ -23,7 +23,7 @@ Extract EVERY medication listed and return ONLY a valid JSON array. Do NOT inclu
 Each array element must have exactly these fields:
 {
   "name": "Medication name and strength (string)",
-  "nickname": "Generate a short, elder-friendly common name based on the medication's primary medical purpose (e.g., 'Blood Pressure Pill', 'Cholesterol Tablet'). If you cannot confidently determine the purpose, leave it as an empty string.",
+  "nickname": "Generate a short, elder-friendly common name based on the medical purpose. CRITICAL: If multiple medications treat the exact same condition, make their nicknames distinctly unique so the patient doesn't confuse them (e.g., 'Primary BP Pill' and 'Secondary BP Pill', or append the dosage like 'BP Pill - 10mg').",
   "time": "Scheduled time in 24-hour HH:MM format (string)",
   "dose": "Dosage instruction (string)",
   "notes": "Any additional notes (string, empty string if none)"
