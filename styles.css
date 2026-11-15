@@ -467,6 +467,11 @@ input, select, textarea { font-family: var(--font-sans); font-size: inherit; }
   background: var(--status-success-light);
   border: 1.5px solid #C8E6D6;
 }
+.med-feedback.warning {
+  color: var(--status-warning);
+  background: var(--status-warning-light);
+  border: 1.5px solid #E8D5A0;
+}
 .med-feedback.error {
   color: var(--status-danger);
   background: var(--status-danger-light);

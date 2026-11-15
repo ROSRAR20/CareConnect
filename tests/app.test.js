@@ -79,6 +79,71 @@ function todayDateString() {
 }
 
 /**
+ * Local copy of timeToMinutes() from app.js.
+ * Converts "HH:MM" 24h string to total minutes.
+ *
+ * @param {string} hhmm
+ * @returns {number}
+ */
+function timeToMinutes(hhmm) {
+  if (!hhmm || !hhmm.includes(':')) return 0;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Local copy of getOneHourPriorFormatted() from app.js.
+ * Returns 12-hour formatted time 1 hour prior.
+ *
+ * @param {string} hhmm
+ * @returns {string}
+ */
+function getOneHourPriorFormatted(hhmm) {
+  const medMinutes = timeToMinutes(hhmm);
+  const priorMinutes = (medMinutes - 60 + 1440) % 1440;
+  const h = Math.floor(priorMinutes / 60);
+  const m = priorMinutes % 60;
+  const priorHhmm = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  return formatTime(priorHhmm);
+}
+
+/**
+ * Evaluates the time window state given a scheduled med time and current time.
+ * Returns { state: 1|2|3, enabled: boolean, feedback: string, className: string }
+ *
+ * @param {string} medTimeHhmm
+ * @param {number} currentMinutes
+ * @returns {object}
+ */
+function evaluateTimeWindow(medTimeHhmm, currentMinutes) {
+  const medMinutes = timeToMinutes(medTimeHhmm);
+  const diffMinutes = currentMinutes - medMinutes;
+
+  if (diffMinutes < -60) {
+    return {
+      state: 1,
+      enabled: false,
+      feedback: `Not time yet. You can log this starting at ${getOneHourPriorFormatted(medTimeHhmm)}.`,
+      className: 'med-feedback warning',
+    };
+  } else if (diffMinutes > 60) {
+    return {
+      state: 3,
+      enabled: false,
+      feedback: 'Time window closed. Caretaker has been notified.',
+      className: 'med-feedback error',
+    };
+  } else {
+    return {
+      state: 2,
+      enabled: true,
+      feedback: '',
+      className: 'med-feedback',
+    };
+  }
+}
+
+/**
  * Simulates the empathy-loop timer logic from app.js.
  * Returns a cancel function and fires `onAlert` after `delayMs`.
  * Used in tests with Jest's fake-timer APIs.
@@ -247,6 +312,98 @@ describe('Empathy Loop Timer', () => {
 
     expect(firstAlert).not.toHaveBeenCalled();  // Was cancelled
     expect(secondAlert).toHaveBeenCalledTimes(1); // Should fire
+  });
+
+});
+
+/* ════════════════════════════════════════════════════════════
+   TEST SUITE 3: Strict Time Window Validation (+/- 60 mins)
+════════════════════════════════════════════════════════════ */
+
+describe('Time Window Validation', () => {
+
+  describe('timeToMinutes()', () => {
+    it('converts 00:00 to 0 minutes', () => {
+      expect(timeToMinutes('00:00')).toBe(0);
+    });
+
+    it('converts 08:30 to 510 minutes', () => {
+      expect(timeToMinutes('08:30')).toBe(510);
+    });
+
+    it('converts 14:00 to 840 minutes', () => {
+      expect(timeToMinutes('14:00')).toBe(840);
+    });
+
+    it('converts 23:59 to 1439 minutes', () => {
+      expect(timeToMinutes('23:59')).toBe(1439);
+    });
+  });
+
+  describe('getOneHourPriorFormatted()', () => {
+    it('returns 7:00 AM for 08:00', () => {
+      expect(getOneHourPriorFormatted('08:00')).toBe('7:00 AM');
+    });
+
+    it('returns 11:00 AM for 12:00', () => {
+      expect(getOneHourPriorFormatted('12:00')).toBe('11:00 AM');
+    });
+
+    it('returns 11:00 PM for 00:00 (crosses midnight boundary)', () => {
+      expect(getOneHourPriorFormatted('00:00')).toBe('11:00 PM');
+    });
+  });
+
+  describe('evaluateTimeWindow() states', () => {
+    const medTime = '12:00'; // 720 minutes
+
+    it('State 1 (Too Early): disables buttons and shows warning text when > 60m before', () => {
+      const current = 650; // 10:50 AM -> 70 mins before
+      const result = evaluateTimeWindow(medTime, current);
+
+      expect(result.state).toBe(1);
+      expect(result.enabled).toBe(false);
+      expect(result.feedback).toBe('Not time yet. You can log this starting at 11:00 AM.');
+      expect(result.className).toBe('med-feedback warning');
+    });
+
+    it('State 2 (Active Window - Lower Bound): enables buttons exactly 60m before', () => {
+      const current = 660; // 11:00 AM -> exactly 60 mins before
+      const result = evaluateTimeWindow(medTime, current);
+
+      expect(result.state).toBe(2);
+      expect(result.enabled).toBe(true);
+      expect(result.feedback).toBe('');
+      expect(result.className).toBe('med-feedback');
+    });
+
+    it('State 2 (Active Window - On Time): enables buttons at scheduled time', () => {
+      const current = 720; // 12:00 PM -> on time
+      const result = evaluateTimeWindow(medTime, current);
+
+      expect(result.state).toBe(2);
+      expect(result.enabled).toBe(true);
+      expect(result.feedback).toBe('');
+    });
+
+    it('State 2 (Active Window - Upper Bound): enables buttons 45m after med time', () => {
+      const current = 765; // 12:45 PM -> 45 mins after
+      const result = evaluateTimeWindow(medTime, current);
+
+      expect(result.state).toBe(2);
+      expect(result.enabled).toBe(true);
+      expect(result.feedback).toBe('');
+    });
+
+    it('State 3 (Missed / Too Late): disables buttons and notifies caretaker when > 60m after', () => {
+      const current = 785; // 1:05 PM -> 65 mins after
+      const result = evaluateTimeWindow(medTime, current);
+
+      expect(result.state).toBe(3);
+      expect(result.enabled).toBe(false);
+      expect(result.feedback).toBe('Time window closed. Caretaker has been notified.');
+      expect(result.className).toBe('med-feedback error');
+    });
   });
 
 });

@@ -446,19 +446,107 @@ function determineCurrentMedication() {
 }
 
 /**
- * Renders the "Your Next Medication" card in the patient view.
+ * Converts a 24-hour "HH:MM" string to minutes from start of day.
+ * Example: "08:30" → 510
+ *
+ * @param {string} hhmm - Time string in 24-hour HH:MM format.
+ * @returns {number} Minutes from midnight (0–1439).
+ */
+function timeToMinutes(hhmm) {
+  if (!hhmm || !hhmm.includes(':')) return 0;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Calculates the time 60 minutes prior to a given "HH:MM" string,
+ * formatted in 12-hour display format (e.g. "7:00 AM").
+ *
+ * @param {string} hhmm - Time string in 24-hour HH:MM format.
+ * @returns {string} 12-hour formatted time string 1 hour prior.
+ */
+function getOneHourPriorFormatted(hhmm) {
+  const medMinutes = timeToMinutes(hhmm);
+  const priorMinutes = (medMinutes - 60 + 1440) % 1440;
+  const h = Math.floor(priorMinutes / 60);
+  const m = priorMinutes % 60;
+  const priorHhmm = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  return formatTime(priorHhmm);
+}
+
+/**
+ * Renders the "Your Next Medication" card in the patient view and
+ * enforces a strict +/- 60 minute active logging window.
+ *
+ * State 1 (Too Early, > 60m before):
+ *   - Disable btn-yes & btn-no
+ *   - Feedback: "Not time yet. You can log this starting at [1 hr prior]."
+ *   - CSS class: .med-feedback.warning
+ *
+ * State 2 (Active Window, within 60m before/after):
+ *   - Enable btn-yes & btn-no
+ *   - Clear med-feedback text & reset class
+ *
+ * State 3 (Missed / Too Late, > 60m after):
+ *   - Disable btn-yes & btn-no
+ *   - Feedback: "Time window closed. Caretaker has been notified."
+ *   - CSS class: .med-feedback.error
  */
 function renderCurrentMedPanel() {
   const med = STATE.currentMed;
+  const btnYes = document.getElementById('btn-yes');
+  const btnNo  = document.getElementById('btn-no');
+  const feedbackEl = document.getElementById('med-feedback');
+
   if (!med) {
     document.getElementById('current-med-name').textContent = 'No medications scheduled';
     document.getElementById('current-med-time').textContent = '';
     document.getElementById('current-med-dose').textContent = '';
+    if (btnYes) btnYes.disabled = true;
+    if (btnNo) btnNo.disabled = true;
+    if (feedbackEl) {
+      feedbackEl.textContent = '';
+      feedbackEl.className = 'med-feedback';
+    }
     return;
   }
+
   document.getElementById('current-med-name').textContent = med.name;
   document.getElementById('current-med-time').textContent = `⏰ ${formatTime(med.time)}`;
   document.getElementById('current-med-dose').textContent = med.dose ? `Dosage: ${med.dose}${med.notes ? ' — ' + med.notes : ''}` : '';
+
+  // ── Enforce +/- 60 Minute Time Window ──
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const medMinutes = timeToMinutes(med.time);
+  const diffMinutes = currentMinutes - medMinutes;
+
+  if (diffMinutes < -60) {
+    // State 1: Too Early (> 60 minutes before)
+    if (btnYes) btnYes.disabled = true;
+    if (btnNo) btnNo.disabled = true;
+    if (feedbackEl) {
+      const startTimeFormatted = getOneHourPriorFormatted(med.time);
+      feedbackEl.textContent = `Not time yet. You can log this starting at ${startTimeFormatted}.`;
+      feedbackEl.className = 'med-feedback warning';
+    }
+  } else if (diffMinutes > 60) {
+    // State 3: Missed / Too Late (> 60 minutes after)
+    if (btnYes) btnYes.disabled = true;
+    if (btnNo) btnNo.disabled = true;
+    if (feedbackEl) {
+      feedbackEl.textContent = 'Time window closed. Caretaker has been notified.';
+      feedbackEl.className = 'med-feedback error';
+    }
+  } else {
+    // State 2: Active Window (within 60 minutes before or after)
+    if (btnYes) btnYes.disabled = false;
+    if (btnNo) btnNo.disabled = false;
+    if (feedbackEl) {
+      feedbackEl.textContent = '';
+      feedbackEl.className = 'med-feedback';
+    }
+  }
 }
 
 /**
@@ -1433,3 +1521,6 @@ window.saveExtractedMedications = saveExtractedMedications;
 window.addMedicationManually = addMedicationManually;
 window.deleteMedication = deleteMedication;
 window.addAppointment = addAppointment;
+window.renderCurrentMedPanel = renderCurrentMedPanel;
+window.timeToMinutes = timeToMinutes;
+window.getOneHourPriorFormatted = getOneHourPriorFormatted;
