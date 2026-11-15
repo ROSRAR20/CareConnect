@@ -930,7 +930,68 @@ input, select, textarea { font-family: var(--font-sans); font-size: inherit; }
 .badge-ai      { background: #6D3FC0; color: #fff; }
 .badge-success { background: var(--status-success); color: #fff; }
 
-/* Upload dropzone */
+/* Dual upload options: Camera vs Gallery */
+.upload-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.upload-btn {
+  font-family: var(--font-sans);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 1.125rem 1rem;
+  border-radius: var(--radius-btn);
+  font-weight: 700;
+  font-size: var(--text-base);
+  min-height: 54px;
+  cursor: pointer;
+  transition: var(--transition-btn);
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.upload-btn input[type="file"],
+.upload-actions input[type="file"] {
+  display: none !important;
+}
+.upload-btn-camera {
+  background: var(--accent-primary);
+  color: #fff;
+  border: 2px solid var(--accent-primary-dark);
+}
+.upload-btn-camera:hover {
+  background: var(--accent-primary-dark);
+}
+.upload-btn-camera:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-pressed);
+}
+.upload-btn-gallery {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+}
+.upload-btn-gallery:hover {
+  background: var(--grey-100);
+  border-color: var(--grey-300);
+}
+.upload-btn-gallery:active {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-pressed);
+}
+
+@media (max-width: 480px) {
+  .upload-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Upload dropzone (legacy/fallback) */
 .upload-label {
   font-family: var(--font-sans);
   display: flex;

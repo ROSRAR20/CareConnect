@@ -89,6 +89,16 @@ document.addEventListener('DOMContentLoaded', () => {
     btnReplace.addEventListener('click', () => saveExtractedMedications(true));
   }
 
+  const cameraInput = $('camera-input');
+  if (cameraInput) {
+    cameraInput.addEventListener('change', handlePrescriptionImage);
+  }
+
+  const galleryInput = $('gallery-input');
+  if (galleryInput) {
+    galleryInput.addEventListener('change', handlePrescriptionImage);
+  }
+
   console.log('[CareConnect] App initialised ✓');
 });
 
@@ -569,7 +579,7 @@ async function syncWellnessToFirestore() {
 
 // --- GEMINI API PARSER ---
 function handlePrescriptionImage(event) {
-  const file = event.target.files[0];
+  const file = event?.target?.files?.[0];
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
@@ -599,9 +609,11 @@ function handlePrescriptionImage(event) {
 }
 
 async function parsePrescription() {
-  const cameraInput = $('camera-input');
-  if (!STATE.prescriptionImageBase64 && cameraInput?.files?.[0]) {
-    const file = cameraInput.files[0];
+  const cameraInput  = $('camera-input');
+  const galleryInput = $('gallery-input');
+  const file = cameraInput?.files?.[0] || galleryInput?.files?.[0];
+
+  if (!STATE.prescriptionImageBase64 && file) {
     STATE.prescriptionImageMime = file.type;
     STATE.prescriptionImageBase64 = await new Promise((resolve, reject) => {
       const reader = new FileReader();

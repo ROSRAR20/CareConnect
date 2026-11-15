@@ -379,21 +379,33 @@
           and our AI will extract the medication schedule automatically.
         </p>
 
-        <!-- Camera / file input
-             id="camera-input" is the canonical ID used by app.js and
-             required by the grading platform. The <label> wires the
-             styled dropzone to this hidden input via the `for` attr. -->
-        <label for="camera-input" class="upload-label" aria-label="Upload or capture prescription image">
-          <span aria-hidden="true">📸</span>
-          <span>Tap to Capture / Upload Prescription</span>
-          <input
-            type="file"
-            id="camera-input"
-            accept="image/*"
-            aria-label="Upload prescription image"
-            onchange="handlePrescriptionImage(event)"
-          />
-        </label>
+        <!-- Dual upload options: Camera vs Gallery -->
+        <div class="upload-actions">
+          <label for="camera-input" class="upload-btn upload-btn-camera" aria-label="Take Photo">
+            <span aria-hidden="true">📷</span>
+            <span>Take Photo</span>
+            <input
+              type="file"
+              id="camera-input"
+              accept="image/*"
+              capture="environment"
+              aria-label="Take photo with camera"
+              onchange="handlePrescriptionImage(event)"
+            />
+          </label>
+
+          <label for="gallery-input" class="upload-btn upload-btn-gallery" aria-label="Upload from Gallery">
+            <span aria-hidden="true">📁</span>
+            <span>Upload from Gallery</span>
+            <input
+              type="file"
+              id="gallery-input"
+              accept="image/*"
+              aria-label="Upload from gallery"
+              onchange="handlePrescriptionImage(event)"
+            />
+          </label>
+        </div>
 
         <!-- Preview of uploaded image -->
         <div id="img-preview-wrap" class="img-preview-wrap hidden" aria-live="polite">
